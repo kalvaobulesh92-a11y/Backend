@@ -18,9 +18,14 @@ if not SECRET_KEY:
     if not DEBUG:
         raise ImproperlyConfigured('SECRET_KEY must be set when DEBUG is disabled.')
     SECRET_KEY = 'django-insecure-local-development-only'
-
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        'ALLOWED_HOSTS',
+        'localhost,127.0.0.1'
+    ).split(',')
+    if host.strip()
+]
 
 def env_bool(name, default):
     value = os.getenv(name)
