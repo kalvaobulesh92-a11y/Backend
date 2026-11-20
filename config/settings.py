@@ -1,285 +1,580 @@
+
 """
 Django settings for KaamConnect project.
+Development: SQLite
+Production: MySQL + Render + Vercel
 """
 
 from pathlib import Path
 from datetime import timedelta
 import os
+
 from dotenv import load_dotenv
 from django.core.exceptions import ImproperlyConfigured
 
-load_dotenv()
+
+# ============================================================
+# BASE CONFIGURATION
+# ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
-SECRET_KEY = os.getenv('SECRET_KEY', '')
-if not SECRET_KEY:
-    if not DEBUG:
-        raise ImproperlyConfigured('SECRET_KEY must be set when DEBUG is disabled.')
-    SECRET_KEY = 'django-insecure-local-development-only'
-ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.getenv(
-        'ALLOWED_HOSTS',
-        'localhost,127.0.0.1'
-    ).split(',')
-    if host.strip()
-]
+load_dotenv(BASE_DIR / ".env")
 
-def env_bool(name, default):
+
+def env_bool(name, default=False):
     value = os.getenv(name)
     if value is None or not value.strip():
         return default
-    return value.lower() in ('true', '1', 'yes')
+    return value.strip().lower() in ("true", "1", "yes", "on")
 
 
-SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', not DEBUG)
-SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', not DEBUG)
-CSRF_COOKIE_SECURE = env_bool('CSRF_COOKIE_SECURE', not DEBUG)
-SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0'))
-SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', not DEBUG)
-SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', False)
+def env_list(name, default=""):
+    value = os.getenv(name, default)
+    return [
+        item.strip()
+        for item in value.split(",")
+        if item.strip()
+    ]
 
-# ---------------------------------------------------------------------------
-# Application definition
-# ---------------------------------------------------------------------------
+
+# ============================================================
+# SECURITY
+# ============================================================
+
+DEBUG = env_bool("DEBUG", False)
+
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "django-insecure-local-development-only"
+    else:
+        raise ImproperlyConfigured(
+            "SECRET_KEY must be configured in production."
+        )
+
+ALLOWED_HOSTS = env_list(
+    "ALLOWED_HOSTS",
+    "localhost,127.0.0.1,backend-1-ka8r.onrender.com"
+)
+
+# Render HTTPS reverse proxy
+SECURE_PROXY_SSL_HEADER = (
+    "HTTP_X_FORWARDED_PROTO",
+    "https"
+)
+
+SECURE_SSL_REDIRECT = env_bool(
+    "SECURE_SSL_REDIRECT",
+    not DEBUG
+)
+
+SESSION_COOKIE_SECURE = env_bool(
+    "SESSION_COOKIE_SECURE",
+    not DEBUG
+)
+
+CSRF_COOKIE_SECURE = env_bool(
+    "CSRF_COOKIE_SECURE",
+    not DEBUG
+)
+
+SECURE_HSTS_SECONDS = int(
+    os.getenv("SECURE_HSTS_SECONDS", "0")
+)
+
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS",
+    False
+)
+
+SECURE_HSTS_PRELOAD = env_bool(
+    "SECURE_HSTS_PRELOAD",
+    False
+)
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+X_FRAME_OPTIONS = "DENY"
+
+SECURE_REFERRER_POLICY = "same-origin"
+
+CSRF_TRUSTED_ORIGINS = env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    "https://backend-1-ka8r.onrender.com,http://localhost:5173"
+)
+
+
+# ============================================================
+# APPLICATION DEFINITION
+# ============================================================
 
 INSTALLED_APPS = [
-    'daphne',  # Must be first for Channels
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    # ASGI / Channels
+    "daphne",
 
-    # Third-party
-    'rest_framework',
-    'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',
-    'corsheaders',
-    'django_filters',
-    'drf_spectacular',
-    'channels',
+    # Django applications
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
 
-    # Local apps
-    'accounts',
-    'profiles',
-    'categories',
-    'services',
-    'locations',
-    'search',
-    'enquiries',
-    'bookings',
-    'quotations',
-    'workbreakdowns',
-    'pricing',
-    'projects',
-    'messaging',
-    'reviews',
-    'notifications',
-    'verification',
-    'complaints',
-    'favourites',
-    'payments',
-    'analytics',
+    # Third-party applications
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
+    "corsheaders",
+    "django_filters",
+    "drf_spectacular",
+    "channels",
+
+    # KaamConnect applications
+    "accounts",
+    "profiles",
+    "categories",
+    "services",
+    "locations",
+    "search",
+    "enquiries",
+    "bookings",
+    "quotations",
+    "workbreakdowns",
+    "pricing",
+    "projects",
+    "messaging",
+    "reviews",
+    "notifications",
+    "verification",
+    "complaints",
+    "favourites",
+    "payments",
+    "analytics",
 ]
+
+
+# ============================================================
+# MIDDLEWARE
+# ============================================================
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+
+    # Static files
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+
+    # CORS
+    "corsheaders.middleware.CorsMiddleware",
+
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'config.urls'
+
+# ============================================================
+# URL CONFIGURATION
+# ============================================================
+
+ROOT_URLCONF = "config.urls"
+
+WSGI_APPLICATION = "config.wsgi.application"
+
+ASGI_APPLICATION = "config.asgi.application"
+
+
+# ============================================================
+# TEMPLATES
+# ============================================================
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
-ASGI_APPLICATION = 'config.asgi.application'
 
-# ---------------------------------------------------------------------------
-# Database
-# ---------------------------------------------------------------------------
-# For production / real MySQL use the configuration below.
-# In this sandbox environment MySQL is not available, so we fall back to SQLite.
-# Switch by setting USE_MYSQL=True in .env when MySQL is ready.
+# ============================================================
+# DATABASE CONFIGURATION
+# ============================================================
 
-USE_MYSQL = os.getenv('USE_MYSQL', 'False').lower() in ('true', '1', 'yes')
+# Local: DEBUG=True -> SQLite by default
+# Production: DEBUG=False -> MySQL by default
+
+USE_MYSQL = env_bool("USE_MYSQL", not DEBUG)
 
 if USE_MYSQL:
-    if not os.getenv('DB_PASSWORD'):
-        raise ImproperlyConfigured('DB_PASSWORD must be set when USE_MYSQL=True.')
+
+    required_db_vars = [
+        "DB_NAME",
+        "DB_USER",
+        "DB_PASSWORD",
+        "DB_HOST",
+    ]
+
+    missing_db_vars = [
+        name for name in required_db_vars
+        if not os.getenv(name)
+    ]
+
+    if missing_db_vars:
+        raise ImproperlyConfigured(
+            "Missing database environment variables: "
+            + ", ".join(missing_db_vars)
+        )
+
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.getenv('DB_NAME', 'KaamConnect'),
-            'USER': os.getenv('DB_USER', 'kaamconnect_user'),
-            'PASSWORD': os.environ['DB_PASSWORD'],
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '3306'),
-            'OPTIONS': {
-                'charset': 'utf8mb4',
-                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": os.environ["DB_NAME"],
+            "USER": os.environ["DB_USER"],
+            "PASSWORD": os.environ["DB_PASSWORD"],
+            "HOST": os.environ["DB_HOST"],
+            "PORT": os.getenv("DB_PORT", "3306"),
+            "CONN_MAX_AGE": 60,
+            "OPTIONS": {
+                "charset": "utf8mb4",
+                "init_command": (
+                    "SET sql_mode='STRICT_TRANS_TABLES'"
+                ),
             },
         }
     }
+
 else:
+
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 
-# ---------------------------------------------------------------------------
-# Auth
-# ---------------------------------------------------------------------------
 
-AUTH_USER_MODEL = 'accounts.User'
+# ============================================================
+# CUSTOM USER MODEL
+# ============================================================
+
+AUTH_USER_MODEL = "accounts.User"
+
+
+# ============================================================
+# PASSWORD VALIDATION
+# ============================================================
 
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    {
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "UserAttributeSimilarityValidator"
+        )
+    },
+    {
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "MinimumLengthValidator"
+        )
+    },
+    {
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "CommonPasswordValidator"
+        )
+    },
+    {
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "NumericPasswordValidator"
+        )
+    },
 ]
 
-# ---------------------------------------------------------------------------
-# Internationalization
-# ---------------------------------------------------------------------------
 
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'Asia/Kolkata'
+# ============================================================
+# INTERNATIONALIZATION
+# ============================================================
+
+LANGUAGE_CODE = "en-us"
+
+TIME_ZONE = "Asia/Kolkata"
+
 USE_I18N = True
+
 USE_TZ = True
 
-# ---------------------------------------------------------------------------
-# Static & Media
-# ---------------------------------------------------------------------------
 
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
+# ============================================================
+# STATIC FILES
+# ============================================================
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+STATIC_URL = "/static/"
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# ---------------------------------------------------------------------------
-# REST Framework
-# ---------------------------------------------------------------------------
+STATICFILES_DIRS = (
+    [BASE_DIR / "static"]
+    if (BASE_DIR / "static").exists()
+    else []
+)
 
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
-    ),
-    'DEFAULT_FILTER_BACKENDS': (
-        'django_filters.rest_framework.DjangoFilterBackend',
-        'rest_framework.filters.SearchFilter',
-        'rest_framework.filters.OrderingFilter',
-    ),
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
-    ],
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',
-        'user': '1000/hour',
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": (
+            "whitenoise.storage."
+            "CompressedManifestStaticFilesStorage"
+        ),
     },
 }
 
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv('SIMPLE_JWT_ACCESS_TOKEN_LIFETIME_MINUTES', 60))),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv('SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS', 7))),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': True,
-    'AUTH_HEADER_TYPES': ('Bearer',),
+
+# ============================================================
+# MEDIA FILES
+# ============================================================
+
+MEDIA_URL = "/media/"
+
+MEDIA_ROOT = BASE_DIR / "media"
+
+
+# ============================================================
+# DEFAULT PRIMARY KEY
+# ============================================================
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# ============================================================
+# DJANGO REST FRAMEWORK
+# ============================================================
+
+REST_FRAMEWORK = {
+
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+
+    "DEFAULT_FILTER_BACKENDS": (
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ),
+
+    "DEFAULT_PAGINATION_CLASS": (
+        "rest_framework.pagination.PageNumberPagination"
+    ),
+
+    "PAGE_SIZE": 20,
+
+    "DEFAULT_SCHEMA_CLASS": (
+        "drf_spectacular.openapi.AutoSchema"
+    ),
+
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/hour",
+        "user": "1000/hour",
+    },
 }
 
-# ---------------------------------------------------------------------------
-# CORS
-# ---------------------------------------------------------------------------
 
-CORS_ALLOWED_ORIGINS = os.getenv(
-    'CORS_ALLOWED_ORIGINS',
-    'http://localhost:5173,http://127.0.0.1:5173'
-).split(',')
+# ============================================================
+# JWT AUTHENTICATION
+# ============================================================
+
+SIMPLE_JWT = {
+
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(
+            os.getenv(
+                "SIMPLE_JWT_ACCESS_TOKEN_LIFETIME_MINUTES",
+                "60"
+            )
+        )
+    ),
+
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=int(
+            os.getenv(
+                "SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS",
+                "7"
+            )
+        )
+    ),
+
+    "ROTATE_REFRESH_TOKENS": True,
+
+    "BLACKLIST_AFTER_ROTATION": True,
+
+    "UPDATE_LAST_LOGIN": True,
+
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
+
+# ============================================================
+# CORS CONFIGURATION - REACT / VERCEL
+# ============================================================
+
+CORS_ALLOWED_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173"
+)
 
 CORS_ALLOW_CREDENTIALS = True
 
-# ---------------------------------------------------------------------------
-# Channels
-# ---------------------------------------------------------------------------
+CORS_ALLOW_ALL_ORIGINS = False
 
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',  # Use Redis in production
-        # 'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        # 'CONFIG': {'hosts': [os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')]},
-    },
-}
 
-# ---------------------------------------------------------------------------
-# Spectacular (Swagger)
-# ---------------------------------------------------------------------------
+# ============================================================
+# DJANGO CHANNELS
+# ============================================================
+
+REDIS_URL = os.getenv("REDIS_URL", "")
+
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
+        },
+    }
+
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
+
+
+# ============================================================
+# SWAGGER / OPENAPI
+# ============================================================
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'KaamConnect API',
-    'DESCRIPTION': 'API documentation for KaamConnect – Indian local service marketplace',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
+
+    "TITLE": "KaamConnect API",
+
+    "DESCRIPTION": (
+        "API documentation for KaamConnect - "
+        "Indian local service marketplace"
+    ),
+
+    "VERSION": "1.0.0",
+
+    "SERVE_INCLUDE_SCHEMA": False,
 }
 
-# ---------------------------------------------------------------------------
-# Email (console for development)
-# ---------------------------------------------------------------------------
 
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@kaamconnect.in')
+# ============================================================
+# EMAIL CONFIGURATION
+# ============================================================
 
-# ---------------------------------------------------------------------------
-# File upload limits
-# ---------------------------------------------------------------------------
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend"
+)
 
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
+EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    "noreply@kaamconnect.in"
+)
+
+
+# ============================================================
+# FILE UPLOAD LIMITS
+# ============================================================
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
-# ---------------------------------------------------------------------------
-# Razorpay (optional)
-# ---------------------------------------------------------------------------
 
-RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', '')
-RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', '')
-RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET', '')
-RAZORPAYX_KEY_ID = os.getenv('RAZORPAYX_KEY_ID', '')
-RAZORPAYX_KEY_SECRET = os.getenv('RAZORPAYX_KEY_SECRET', '')
-RAZORPAYX_ACCOUNT_NUMBER = os.getenv('RAZORPAYX_ACCOUNT_NUMBER', '')
-RAZORPAYX_WEBHOOK_SECRET = os.getenv('RAZORPAYX_WEBHOOK_SECRET', '')
+# ============================================================
+# RAZORPAY PAYMENT GATEWAY
+# ============================================================
+
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
+
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+
+RAZORPAY_WEBHOOK_SECRET = os.getenv(
+    "RAZORPAY_WEBHOOK_SECRET",
+    ""
+)
+
+RAZORPAYX_KEY_ID = os.getenv("RAZORPAYX_KEY_ID", "")
+
+RAZORPAYX_KEY_SECRET = os.getenv(
+    "RAZORPAYX_KEY_SECRET",
+    ""
+)
+
+RAZORPAYX_ACCOUNT_NUMBER = os.getenv(
+    "RAZORPAYX_ACCOUNT_NUMBER",
+    ""
+)
+
+RAZORPAYX_WEBHOOK_SECRET = os.getenv(
+    "RAZORPAYX_WEBHOOK_SECRET",
+    ""
+)
+
+
+# ============================================================
+# LOGGING
+# ============================================================
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+
+    "root": {
+        "handlers": ["console"],
+        "level": os.getenv("LOG_LEVEL", "INFO"),
+    },
+}
