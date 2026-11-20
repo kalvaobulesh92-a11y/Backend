@@ -232,28 +232,17 @@ if USE_MYSQL:
         if not os.getenv(name)
     ]
 
-    if missing_db_vars:
-        raise ImproperlyConfigured(
-            "Missing database environment variables: "
-            + ", ".join(missing_db_vars)
-        )
+  if os.getenv("DATABASE_URL"):
+
+    import dj_database_url
 
     DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": os.environ["DB_NAME"],
-            "USER": os.environ["DB_USER"],
-            "PASSWORD": os.environ["DB_PASSWORD"],
-            "HOST": os.environ["DB_HOST"],
-            "PORT": os.getenv("DB_PORT", "3306"),
-            "CONN_MAX_AGE": 60,
-            "OPTIONS": {
-                "charset": "utf8mb4",
-                "init_command": (
-                    "SET sql_mode='STRICT_TRANS_TABLES'"
-                ),
-            },
-        }
+        "default": dj_database_url.config(
+            default=os.getenv("DATABASE_URL"),
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=not DEBUG,
+        )
     }
 
 else:
@@ -264,8 +253,6 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
-
-
 # ============================================================
 # CUSTOM USER MODEL
 # ============================================================
