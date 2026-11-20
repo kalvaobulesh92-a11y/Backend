@@ -53,11 +53,11 @@ if not SECRET_KEY:
         raise ImproperlyConfigured(
             "SECRET_KEY must be configured in production."
         )
-
-ALLOWED_HOSTS = env_list(
-    "ALLOWED_HOSTS",
-    "localhost,127.0.0.1,backend-1-ka8r.onrender.com"
-)
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "backend-unsg.onrender.com",
+]
 
 # Render HTTPS reverse proxy
 SECURE_PROXY_SSL_HEADER = (
@@ -578,3 +578,7 @@ LOGGING = {
         "level": os.getenv("LOG_LEVEL", "INFO"),
     },
 }
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://backend-unsg.onrender.com",
+]
